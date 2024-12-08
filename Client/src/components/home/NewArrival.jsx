@@ -50,6 +50,62 @@ const ArrivalSliderWrapper = styled.div`
     }
   }
 `;
+
+const ButtonWrapper = styled.div`
+background-color: #14c4b5; /* Initial color */
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: #10b9b0; /* Lighter shade on hover */
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+`;
+
+const WebcamContainer = styled.div`
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 25rem;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  background-color: #000;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+`;
+
+
+const OverlayWrapper = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+`;
+
+const OverlayImage = styled.img`
+  max-width: 80%;
+  max-height: 80%;
+  transition: transform 0.3s ease-in-out;
+  object-fit: contain;
+`;
+
+
 const socket = io("http://localhost:5000");
 
 const NewArrival = () => {
@@ -181,13 +237,14 @@ useEffect(() => {
               );
             })}
           </Slider>
-          <button onClick={toggleWebcam}>
+          <ButtonWrapper onClick={toggleWebcam}>
                     {webcamActive ? "Close Webcam" : "Open Webcam"}
-                </button>
+                </ButtonWrapper>
         </ArrivalSliderWrapper>
         {webcamActive && (
   <>
     {/* Display the webcam feed */}
+    <WebcamContainer>
     <Webcam
       audio={false}
       ref={webcamRef}
@@ -195,12 +252,15 @@ useEffect(() => {
       videoConstraints={{ facingMode: "user" }}
       className="webcam-feed"
     />
-    
+    </WebcamContainer>
+
     {/* Display the virtual try-on image */}
     {selectedImage && (
-      <div className="overlay">
+   
+      <div>
         <img src={selectedImage} alt="Virtual Try-On" className="overlay-image" />
       </div>
+     
     )}
   </>
 )}
