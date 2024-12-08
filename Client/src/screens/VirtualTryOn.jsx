@@ -1,126 +1,102 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Webcam from 'react-webcam';
-import axios from 'axios';
+import React, { useState, useRef } from "react";
+import Webcam from "react-webcam";
+import axios from "axios";
 
 const VirtualTryOn = () => {
-  const [isWebcamOn, setIsWebcamOn] = useState(false);
-  const [overlayImage, setOverlayImage] = useState(null);
-  const [imageForTryOn, setImageForTryOn] = useState(null); // Image selected by user
-  const webcamRef = useRef(null);
-  const [overlayPosition, setOverlayPosition] = useState({ x: 0, y: 0 });
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [webcamActive, setWebcamActive] = useState(false);
+    const webcamRef = useRef(null);
 
-  // Start webcam
-  const startWebcam = () => {
-    setIsWebcamOn(true);
-  };
+    const handleImageClick = async (imageUrl) => {
+        if (!webcamActive) {
+            alert("Please enable the webcam to try on clothes.");
+            return;
+        }
 
-  // Stop webcam
-  const stopWebcam = () => {
-    setIsWebcamOn(false);
-  };
+        console.log("Sending request to backend...");
 
-  // Handle image click to select a clothing item
-  const handleImageClick = (imageUrl) => {
-    setImageForTryOn(imageUrl);
-    startWebcam(); 
-  };
+        try {
+            // Fetch the image to upload
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
 
-  // Capture image periodically and overlay the selected image
-  const captureAndSendImage = () => {
-    const imageSrc = webcamRef.current.getScreenshot();
-    overlayImageOnUser(imageSrc); // Overlay the image on user
-  };
+            // Convert to File (this can also work with the appropriate MIME type)
+            const file = new File([blob], "image.jpg", { type: "image/jpeg" });
 
-  // Overlay the selected image on the user in the webcam feed
-  const overlayImageOnUser = async (imageSrc) => {
-    // Send image to backend to overlay the selected image on the user (you could use MediaPipe or OpenCV here)
-    try {
-      const formData = new FormData();
-      formData.append('image', dataURLtoFile(imageSrc, 'captured-image.png'));
-      formData.append('overlayImage', imageForTryOn); // Send the selected image for overlay
+            const formData = new FormData();
+            formData.append("shirt", file);
 
-      const response = await axios.post('http://127.0.0.1:8000/try-on', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+            // Send the image to backend for processing
+            const backendResponse = await axios.post("http://localhost:5000/try-on", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+                responseType: "blob", // This ensures that the response is treated as a blob
+            });
+            
+            console.log('Response Blob:', backendResponse.data); 
+            
+            // Convert the backend response to a URL and display the processed image
+            const processedImageURL = URL.createObjectURL(backendResponse.data);
+            console.log('Processed Image URL:', processedImageURL);  // Check if the URL is valid
+            setSelectedImage(processedImageURL);
+            
+        } catch (error) {
+            console.error("Error during try-on request:", error);
+        }
+    };
 
-      // Assuming the backend sends back the processed image
-      setOverlayImage(response.data.overlayImage); 
-    } catch (error) {
-      console.error('Error sending image to backend:', error);
-    }
-  };
+    const toggleWebcam = () => {
+        setWebcamActive((prev) => !prev);
+        setSelectedImage(null); // Reset the image when toggling the webcam
 
-  // Convert base64 to File
-  const dataURLtoFile = (dataurl, filename) => {
-    const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-          bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-    while (n--) u8arr[n] = bstr.charCodeAt(n);
-    return new File([u8arr], filename, { type: mime });
-  };
+        // Stop the webcam stream when disabling
+        if (webcamRef.current && webcamRef.current.stream) {
+            const tracks = webcamRef.current.stream.getTracks();
+            tracks.forEach((track) => track.stop());
+        }
+    };
 
-  // Periodically capture and send images every 200ms
-  useEffect(() => {
-    let interval;
-    if (isWebcamOn) {
-      interval = setInterval(() => {
-        captureAndSendImage();
-      }, 200);  // Adjust frequency as needed
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isWebcamOn, imageForTryOn]);
+    return (
+        <div className="virtual-try-on">
+            <div className="shirt-selection">
+                <h2>Choose a Shirt:</h2>
+                {/* Example shirt images */}
+                <img
+                    src="/shirts/shirt1.png"
+                    alt="Shirt 1"
+                    onClick={() => handleImageClick("/shirts/shirt1.png")}
+                />
+                <img
+                    src="/shirts/shirt2.png"
+                    alt="Shirt 2"
+                    onClick={() => handleImageClick("/shirts/shirt2.png")}
+                />
+            </div>
 
-  return (
-    <div className="virtual-try-on-container">
-      <h2>Virtual Try-On</h2>
+            <div className="webcam-container">
+                <button onClick={toggleWebcam}>
+                    {webcamActive ? "Close Webcam" : "Open Webcam"}
+                </button>
 
-      {/* Display clothing items to try on */}
-      <div className="image-selection">
-        <img 
-          src="/images/shirt1.png" 
-          alt="Shirt" 
-          onClick={() => handleImageClick("/images/shirt1.png")}
-          className="clothing-item"
-        />
-        <img 
-          src="jacket_image.jpg" 
-          alt="Jacket" 
-          onClick={() => handleImageClick("jacket_image.jpg")}
-          className="clothing-item"
-        />
-        {/* Add more items */}
-      </div>
-
-      {/* Webcam display */}
-      {isWebcamOn ? (
-        <div>
-          <Webcam
-            audio={false}
-            ref={webcamRef}
-            screenshotFormat="image/png"
-            width="100%"
-            videoConstraints={{
-              facingMode: 'user',
-            }}
-          />
-          <button onClick={stopWebcam}>Stop Webcam</button>
+                {webcamActive && (
+                    <>
+                        {/* Display the webcam feed */}
+                        <Webcam
+                            audio={false}
+                            ref={webcamRef}
+                            screenshotFormat="image/jpeg"
+                            videoConstraints={{ facingMode: "user" }} // Ensure correct webcam orientation
+                        />
+                        {/* Display the virtual try-on image */}
+                        {selectedImage && (
+                            <div className="overlay">
+                                <img src={selectedImage} alt="Virtual Try-On" />
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
         </div>
-      ) : (
-        <button onClick={startWebcam}>Start Webcam</button>
-      )}
-
-      {/* Display the overlaid image */}
-      {overlayImage && (
-        <div>
-          <h3>Your Virtual Try-On Result</h3>
-          <img src={overlayImage} alt="Virtual Try-On Result" />
-        </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default VirtualTryOn;
