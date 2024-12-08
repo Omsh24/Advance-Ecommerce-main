@@ -78,8 +78,8 @@ def process_frame(data):
                 shirt_height = int(shirt_width * shirt.shape[0] / shirt.shape[1])
                 resized_shirt = cv2.resize(shirt, (shirt_width, shirt_height))
 
-                shirt_position = (min(left_shoulder_x, right_shoulder_x),
-                                  left_shoulder_y - shirt_height // 8)
+                shirt_position = (right_shoulder_x + (shoulder_width // 2) - (shirt_width // 2),
+                            right_shoulder_y - shirt_height // 8)
 
                 frame = overlay_png(frame, resized_shirt, shirt_position)
 
