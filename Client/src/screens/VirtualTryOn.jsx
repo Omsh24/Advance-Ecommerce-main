@@ -1,11 +1,32 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Webcam from "react-webcam";
-import axios from "axios";
+import io from "socket.io-client";
+
+const socket = io("http://localhost:5000"); // Connect to the WebSocket server
 
 const VirtualTryOn = () => {
-    const [selectedImage, setSelectedImage] = useState(null);
-    const [webcamActive, setWebcamActive] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null); // Stores processed image
+    const [webcamActive, setWebcamActive] = useState(false); // Toggles webcam
     const webcamRef = useRef(null);
+    const [shirtImage, setShirtImage] = useState(null); // Stores selected shirt image
+
+    useEffect(() => {
+        if (!socket) return;
+
+        // Handle processed frame data from the server
+        socket.on("frame_processed", (data) => {
+            setSelectedImage(`data:image/png;base64,${data.frame}`);
+        });
+
+        socket.on("error", (error) => {
+            console.error("Error from server:", error.message);
+        });
+
+        // Cleanup on component unmount
+        return () => {
+            socket.disconnect();
+        };
+    }, []);
 
     const handleImageClick = async (imageUrl) => {
         if (!webcamActive) {
@@ -13,35 +34,42 @@ const VirtualTryOn = () => {
             return;
         }
 
-        console.log("Sending request to backend...");
-
         try {
-            // Fetch the image to upload
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
-
-            // Convert to File (this can also work with the appropriate MIME type)
-            const file = new File([blob], "image.jpg", { type: "image/jpeg" });
-
-            const formData = new FormData();
-            formData.append("shirt", file);
-
-            // Send the image to backend for processing
-            const backendResponse = await axios.post("http://localhost:5000/try-on", formData, {
-                headers: { "Content-Type": "multipart/form-data" },
-                responseType: "blob", // This ensures that the response is treated as a blob
-            });
-            
-            console.log('Response Blob:', backendResponse.data); 
-            
-            // Convert the backend response to a URL and display the processed image
-            const processedImageURL = URL.createObjectURL(backendResponse.data);
-            console.log('Processed Image URL:', processedImageURL);  // Check if the URL is valid
-            setSelectedImage(processedImageURL);
-            
+            const shirtResponse = await fetch(imageUrl);
+            const shirtBlob = await shirtResponse.blob();
+            const shirtBase64 = await blobToBase64(shirtBlob);
+            setShirtImage(shirtBase64); // Update the selected shirt image
         } catch (error) {
-            console.error("Error during try-on request:", error);
+            console.error("Error loading shirt image:", error);
         }
+    };
+
+    const sendFrameToServer = async () => {
+        if (!webcamRef.current) return;
+
+        const webcamCanvas = webcamRef.current.getCanvas();
+        if (!webcamCanvas) return;
+
+        // Convert webcam frame to Base64
+        const frameBlob = await new Promise((resolve) =>
+            webcamCanvas.toBlob(resolve, "image/png")
+        );
+        const frameBase64 = await blobToBase64(frameBlob);
+
+        // Send frame and shirt to the server
+        socket.emit("process_frame", {
+            frame: frameBase64,
+            shirt: shirtImage,
+        });
+    };
+
+    const blobToBase64 = (blob) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(",")[1]); // Extract Base64
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     };
 
     const toggleWebcam = () => {
@@ -54,6 +82,14 @@ const VirtualTryOn = () => {
             tracks.forEach((track) => track.stop());
         }
     };
+
+    useEffect(() => {
+        // Send frames periodically when webcam is active
+        if (webcamActive && shirtImage) {
+            const interval = setInterval(sendFrameToServer, 100); // Send frame every 100ms
+            return () => clearInterval(interval);
+        }
+    }, [webcamActive, shirtImage]); // Re-run when webcam or shirtImage changes
 
     return (
         <div className="virtual-try-on">
@@ -83,8 +119,8 @@ const VirtualTryOn = () => {
                         <Webcam
                             audio={false}
                             ref={webcamRef}
-                            screenshotFormat="image/jpeg"
-                            videoConstraints={{ facingMode: "user" }} // Ensure correct webcam orientation
+                            screenshotFormat="image/png"
+                            videoConstraints={{ facingMode: "user" }}
                         />
                         {/* Display the virtual try-on image */}
                         {selectedImage && (

@@ -2,31 +2,21 @@ import os
 import cv2
 import mediapipe as mp
 import numpy as np
-from flask import Flask, request, jsonify, send_file
+from flask import Flask
+from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
-from flask_cors import CORS
 from io import BytesIO
+import base64
 
 app = Flask(__name__)
-
-# Enable CORS after app is initialized
-CORS(app, origins=["http://localhost:5173"], methods=["GET", "POST", "OPTIONS"])
-
-# Define constants for the uploaded files and shirt folder paths
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+socketio = SocketIO(app, cors_allowed_origins="*")  # Enable WebSocket support with CORS
 
 # MediaPipe Pose Initialization
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 
-# Utility function to check allowed file extensions
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Function to overlay the shirt image on the webcam frame
+# Function to overlay the shirt image on the frame
 def overlay_png(background, overlay, position):
     bg_h, bg_w, bg_channels = background.shape
     overlay_h, overlay_w, overlay_channels = overlay.shape
@@ -39,7 +29,6 @@ def overlay_png(background, overlay, position):
     if y + overlay_h > bg_h:
         overlay = overlay[:(bg_h - y), :]
 
-    # Handle alpha blending
     alpha_s = overlay[:, :, 3] / 255.0
     alpha_l = 1.0 - alpha_s
 
@@ -51,34 +40,23 @@ def overlay_png(background, overlay, position):
 
     return background
 
-@app.route('/try-on', methods=['POST'])
-def try_on_shirt():
-    # Ensure a file was uploaded
-    if 'shirt' not in request.files:
-        return jsonify({"error": "No shirt file part"}), 400
+# WebSocket to process real-time frames
+@socketio.on('process_frame')
+def process_frame(data):
+    try:
+        # Decode the frame and shirt image from base64
+        frame_data = base64.b64decode(data['frame'])
+        shirt_data = base64.b64decode(data['shirt'])
 
-    file = request.files['shirt']
+        # Convert to numpy arrays
+        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+        shirt = cv2.imdecode(np.frombuffer(shirt_data, np.uint8), cv2.IMREAD_UNCHANGED)
 
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+        if frame is None or shirt is None:
+            emit('error', {'message': 'Invalid frame or shirt data'})
+            return
 
-    if file and allowed_file(file.filename):
-        # Secure the filename and save the file
-        filename = secure_filename(file.filename)
-        shirt_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(shirt_path)
-
-        # Read the shirt image with alpha channel (transparency)
-        shirt_image = cv2.imread(shirt_path, cv2.IMREAD_UNCHANGED)
-
-        # Check if shirt image has alpha channel
-        if shirt_image.shape[2] != 4:
-            return jsonify({"error": "Shirt image must have an alpha channel (transparency)"}), 400
-
-        # Initialize webcam frame (dummy frame to simulate webcam input)
-        frame = np.zeros((640, 480, 3), dtype=np.uint8)  # Black dummy frame
-
-        # Process the dummy frame to get pose landmarks 
+        # Process the frame for pose landmarks
         img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = pose.process(img_rgb)
 
@@ -93,34 +71,30 @@ def try_on_shirt():
             right_shoulder_x = int(right_shoulder.x * w)
             right_shoulder_y = int(right_shoulder.y * h)
 
-            shoulder_width = left_shoulder_x - right_shoulder_x
+            shoulder_width = abs(left_shoulder_x - right_shoulder_x)
 
             if shoulder_width > 0:
                 shirt_width = int(shoulder_width * 1.6)
-                shirt_height = int(shirt_width * shirt_image.shape[0] / shirt_image.shape[1])
+                shirt_height = int(shirt_width * shirt.shape[0] / shirt.shape[1])
+                resized_shirt = cv2.resize(shirt, (shirt_width, shirt_height))
 
-                resized_shirt = cv2.resize(shirt_image, (shirt_width, shirt_height))
+                shirt_position = (min(left_shoulder_x, right_shoulder_x),
+                                  left_shoulder_y - shirt_height // 8)
 
-                shirt_position = (right_shoulder_x + (shoulder_width // 2) - (shirt_width // 2),
-                                  right_shoulder_y - shirt_height // 8)
-
-                # Apply the overlay
                 frame = overlay_png(frame, resized_shirt, shirt_position)
 
             else:
-                return jsonify({"error": "Invalid shoulder width"}), 400
+                emit('error', {'message': 'Invalid shoulder width'})
+                return
 
-        # Convert the frame with overlay to image and return it as response
+        # Encode the processed frame back to base64
         _, buffer = cv2.imencode('.png', frame)
-        img_bytes = buffer.tobytes()
+        processed_frame = base64.b64encode(buffer).decode('utf-8')
 
-        return send_file(BytesIO(img_bytes), mimetype='image/png')
-
-    return jsonify({"error": "File type not allowed"}), 400
+        # Send the processed frame back to the client
+        emit('frame_processed', {'frame': processed_frame})
+    except Exception as e:
+        emit('error', {'message': str(e)})
 
 if __name__ == '__main__':
-    # Create upload folder if it doesn't exist
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
-
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
