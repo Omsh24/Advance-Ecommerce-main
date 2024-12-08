@@ -86,7 +86,7 @@ const VirtualTryOn = () => {
     useEffect(() => {
         // Send frames periodically when webcam is active
         if (webcamActive && shirtImage) {
-            const interval = setInterval(sendFrameToServer, 100); // Send frame every 100ms
+            const interval = setInterval(sendFrameToServer, 1500); // Send frame every 100ms
             return () => clearInterval(interval);
         }
     }, [webcamActive, shirtImage]); // Re-run when webcam or shirtImage changes
