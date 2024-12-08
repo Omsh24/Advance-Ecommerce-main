@@ -15,7 +15,7 @@ const HomeScreen = () => {
   return (
     <HomeScreenWrapper>
       <Hero />
-      <VirtualTryOn/>
+      {/* <VirtualTryOn/> */}
       {/* <Featured /> */}
       <NewArrival />
       <Catalog catalogTitle={"Categories For Men"} products={mensCatalog} />

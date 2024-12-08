@@ -114,22 +114,25 @@ const VirtualTryOn = () => {
                 </button>
 
                 {webcamActive && (
-                    <>
-                        {/* Display the webcam feed */}
-                        <Webcam
-                            audio={false}
-                            ref={webcamRef}
-                            screenshotFormat="image/png"
-                            videoConstraints={{ facingMode: "user" }}
-                        />
-                        {/* Display the virtual try-on image */}
-                        {selectedImage && (
-                            <div className="overlay">
-                                <img src={selectedImage} alt="Virtual Try-On" />
-                            </div>
-                        )}
-                    </>
-                )}
+  <>
+    {/* Display the webcam feed */}
+    <Webcam
+      audio={false}
+      ref={webcamRef}
+      screenshotFormat="image/png"
+      videoConstraints={{ facingMode: "user" }}
+      className="webcam-feed"
+    />
+    
+    {/* Display the virtual try-on image */}
+    {selectedImage && (
+      <div className="overlay">
+        <img src={selectedImage} alt="Virtual Try-On" className="overlay-image" />
+      </div>
+    )}
+  </>
+)}
+
             </div>
         </div>
     );

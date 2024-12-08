@@ -8,6 +8,10 @@ import { newArrivalData } from "../../data/data";
 import { commonCardStyles } from "../../styles/card";
 import { breakpoints } from "../../styles/themes/default";
 
+import Webcam from "react-webcam";
+import io from "socket.io-client";
+import React, { useState, useRef, useEffect } from "react";
+
 const ProductCardBoxWrapper = styled.div`
   ${commonCardStyles}
   .product-img {
@@ -46,8 +50,96 @@ const ArrivalSliderWrapper = styled.div`
     }
   }
 `;
+const socket = io("http://localhost:5000");
 
 const NewArrival = () => {
+  const [selectedImage, setSelectedImage] = useState(null); 
+  const [webcamActive, setWebcamActive] = useState(false); 
+  const webcamRef = useRef(null);
+  const [shirtImage, setShirtImage] = useState(null); 
+  useEffect(() => {
+    if (!socket) return;
+
+    // Handle processed frame data from the server
+    socket.on("frame_processed", (data) => {
+        setSelectedImage(`data:image/png;base64,${data.frame}`);
+    });
+
+    socket.on("error", (error) => {
+        console.error("Error from server:", error.message);
+    });
+
+    // Cleanup on component unmount
+    return () => {
+        socket.disconnect();
+    };
+}, []);
+
+const handleImageClick = async (imageUrl) => {
+  if (!webcamActive) {
+      alert("Please enable the webcam to try on clothes.");
+      return;
+  }
+
+  try {
+      const shirtResponse = await fetch(imageUrl);
+      const shirtBlob = await shirtResponse.blob();
+      const shirtBase64 = await blobToBase64(shirtBlob);
+      setShirtImage(shirtBase64); // Update the selected shirt image
+  } catch (error) {
+      console.error("Error loading shirt image:", error);
+  }
+};
+
+const sendFrameToServer = async () => {
+  if (!webcamRef.current) return;
+
+  const webcamCanvas = webcamRef.current.getCanvas();
+  if (!webcamCanvas) return;
+
+  // Convert webcam frame to Base64
+  const frameBlob = await new Promise((resolve) =>
+      webcamCanvas.toBlob(resolve, "image/png")
+  );
+  const frameBase64 = await blobToBase64(frameBlob);
+
+  // Send frame and shirt to the server
+  socket.emit("process_frame", {
+      frame: frameBase64,
+      shirt: shirtImage,
+  });
+};
+
+
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(",")[1]); // Extract Base64
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+  });
+};
+
+const toggleWebcam = () => {
+  setWebcamActive((prev) => !prev);
+  setSelectedImage(null); // Reset the image when toggling the webcam
+
+  // Stop the webcam stream when disabling
+  if (webcamRef.current && webcamRef.current.stream) {
+      const tracks = webcamRef.current.stream.getTracks();
+      tracks.forEach((track) => track.stop());
+  }
+};
+
+useEffect(() => {
+  // Send frames periodically when webcam is active
+  if (webcamActive && shirtImage) {
+      const interval = setInterval(sendFrameToServer, 1500); // Send frame every 100ms
+      return () => clearInterval(interval);
+  }
+}, [webcamActive, shirtImage]);
+
+
   const settings = {
     dots: false,
     infinite: true,
@@ -56,6 +148,13 @@ const NewArrival = () => {
     centerMode: true,
     variableWidth: true,
   };
+
+  const path = [
+    { id: 1, img: "/shirts/shirt2.png" },
+    { id: 2, img: "/shirts/shirt1.png" },
+    { id: 3, img: "/shirts/shirt3.png" },
+  ];
+  
 
   return (
     <Section>
@@ -67,23 +166,44 @@ const NewArrival = () => {
             prevArrow={<CustomPrevArrow />}
             {...settings}
           >
-            {newArrivalData?.map((newArrival) => {
+            {path?.map((newArrival) => {
               return (
                 <ProductCardBoxWrapper key={newArrival.id}>
                   <div className="product-img">
                     <img
                       className="object-fit-cover"
-                      src={newArrival.imgSource}
+                      src={newArrival.img}
+                      alt="Product"
+                      onClick={() => handleImageClick(newArrival.img)}
                     />
-                  </div>
-                  <div className="product-info">
-                    <p className="font-semibold text-xl">{newArrival.title}</p>
                   </div>
                 </ProductCardBoxWrapper>
               );
             })}
           </Slider>
+          <button onClick={toggleWebcam}>
+                    {webcamActive ? "Close Webcam" : "Open Webcam"}
+                </button>
         </ArrivalSliderWrapper>
+        {webcamActive && (
+  <>
+    {/* Display the webcam feed */}
+    <Webcam
+      audio={false}
+      ref={webcamRef}
+      screenshotFormat="image/png"
+      videoConstraints={{ facingMode: "user" }}
+      className="webcam-feed"
+    />
+    
+    {/* Display the virtual try-on image */}
+    {selectedImage && (
+      <div className="overlay">
+        <img src={selectedImage} alt="Virtual Try-On" className="overlay-image" />
+      </div>
+    )}
+  </>
+)}
       </Container>
     </Section>
   );
