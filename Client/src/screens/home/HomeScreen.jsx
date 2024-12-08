@@ -7,6 +7,7 @@ import Catalog from "../../components/home/Catalog";
 import { limelightCatalog, mensCatalog, womensCatalog } from "../../data/data";
 import Brands from "../../components/home/Brands";
 import Feedback from "../../components/home/Feedback";
+import VirtualTryOn from "../VirtualTryOn";
 
 const HomeScreenWrapper = styled.main``;
 
@@ -14,6 +15,7 @@ const HomeScreen = () => {
   return (
     <HomeScreenWrapper>
       <Hero />
+      <VirtualTryOn/>
       {/* <Featured /> */}
       <NewArrival />
       <Catalog catalogTitle={"Categories For Men"} products={mensCatalog} />
