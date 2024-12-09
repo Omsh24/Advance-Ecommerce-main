@@ -11,13 +11,14 @@ This is an advanced e-commerce platform built using the MERN stack, integrated w
 ## 🖼️ Screenshots
 
 ### Home Page
-![Home Page](path/to/home-page-image.png)
+![Screenshot 2024-12-09 144737](https://github.com/user-attachments/assets/b3c48a41-dc1f-418e-89c6-c4fe877558d0)
 
 ### Product Page
-![Product Page](path/to/product-page-image.png)
+![Screenshot 2024-12-09 145902](https://github.com/user-attachments/assets/6ca38f47-d29a-46a1-b93d-b48dc2f2a6f8)
 
 ### Virtual Try-On Feature
-![Virtual Try-On](path/to/virtual-try-on-image.png)
+![Screenshot 2024-12-09 150249](https://github.com/user-attachments/assets/3b2c8c62-5fc0-464e-ba79-ad1ad8fec2b0)
+
 
 ## 📖 About
 This project combines the functionality of an e-commerce platform with cutting-edge AI for virtual try-ons. It allows users to:
