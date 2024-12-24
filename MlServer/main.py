@@ -107,7 +107,6 @@ from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from io import BytesIO
 import base64
-from waitress import serve  # Import Waitress
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")  # Enable WebSocket support with CORS
@@ -198,9 +197,4 @@ def process_frame(data):
         emit('error', {'message': str(e)})
 
 if __name__ == '__main__':
-    # Configure the application for deployment
-    host = os.getenv('HOST', '0.0.0.0')
-    port = int(os.getenv('PORT', 5000))
-
-    # Run the app using Waitress
-    serve(app, host=host, port=port)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
