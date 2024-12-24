@@ -73,7 +73,7 @@ The virtual try-on system leverages MediaPipe and OpenCV for real-time image pro
 
 ### Clone the Repository
 ```bash
-git clone [https://github.com/your-username/advanced-ecommerce-virtual-tryon.git](https://github.com/Rachit-31/Advance-Ecommerce.git)
+git clone https://github.com/Rachit-31/Advance-Ecommerce.git
 cd Advanced-Ecommerce
 
 ```
