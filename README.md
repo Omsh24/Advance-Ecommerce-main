@@ -65,7 +65,6 @@ The virtual try-on system leverages MediaPipe and OpenCV for real-time image pro
 - **Product Browsing:** Explore a catalog of products with filters.
 - **Virtual Try-On:** AI-powered real-time try-on for clothes using MediaPipe and OpenCV.
 - **Shopping Cart:** Add products to the cart and proceed to checkout.
-- **Search:** Quickly find products using a search bar.
 - **Responsive Design:** Optimized for all devices.
 
 ---
@@ -74,8 +73,8 @@ The virtual try-on system leverages MediaPipe and OpenCV for real-time image pro
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/your-username/advanced-ecommerce-virtual-tryon.git
-cd advanced-ecommerce-virtual-tryon
+git clone [https://github.com/your-username/advanced-ecommerce-virtual-tryon.git](https://github.com/Rachit-31/Advance-Ecommerce.git)
+cd Advanced-Ecommerce
 
 ```
 ## Dependencies and Installation
