@@ -99,3 +99,4 @@ Contributions are welcome! Fork this repository, create a feature branch, and su
 
 ## 📧 Contact
 For queries, reach out to rachitjainjaipur@gmail.com
+omshukla2403@gmail.com
